@@ -1,3 +1,4 @@
+"""Configures snmp agent."""
 import os
 from pattoo_shared.installation import configure, shared
 from pattoo_shared import files
@@ -5,10 +6,13 @@ from pattoo_shared import files
 
 def install(daemon_list):
     """Start configuration process.
+
     Args:
         None
+
     Returns:
         None
+
     """
     # Initialize key variables
     if os.environ.get('PATTOO_CONFIGDIR') is None:
