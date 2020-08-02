@@ -38,6 +38,7 @@ def install_dependencies():
         shared.run_script(
             'sudo yum install gcc python-devel')
 
+    # Die if distribution isn't debian or rhel based
     else:
         shared.log('''\
 Your operating system does not support Net-SNMP 5.7.x \n \
