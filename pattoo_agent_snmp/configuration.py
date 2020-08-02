@@ -5,7 +5,7 @@
 from copy import deepcopy
 
 # Import project libraries
-from pattoo_shared import configuration, files
+from pattoo_shared import configuration, files, log
 from pattoo_shared.configuration import Config
 from pattoo_shared.variables import IPTargetPollingPoints
 from pattoo_agent_snmp import PATTOO_AGENT_SNMPD, PATTOO_AGENT_SNMP_IFMIBD
@@ -44,7 +44,7 @@ class ConfigSNMP(Config):
 
         """
         # Get result
-        result = _snmpvariables(PATTOO_AGENT_SNMPD, self._agent_config)
+        result = _snmpvariables(self._agent_config)
         return result
 
     def target_polling_points(self):
@@ -58,8 +58,7 @@ class ConfigSNMP(Config):
 
         """
         # Get result
-        result = _target_polling_points(
-            PATTOO_AGENT_SNMPD, self._agent_config)
+        result = _target_polling_points(self._agent_config)
         return result
 
     def polling_interval(self):
@@ -72,8 +71,10 @@ class ConfigSNMP(Config):
             result: result
 
         """
-        # Get result
-        result = _polling_interval(PATTOO_AGENT_SNMPD, self._agent_config)
+        # Get parameter
+        key = 'polling_interval'
+        result = self._agent_config.get(key, 300)
+        result = abs(int(result))
         return result
 
 
@@ -109,7 +110,7 @@ class ConfigSNMPIfMIB(Config):
 
         """
         # Get result
-        result = _snmpvariables(PATTOO_AGENT_SNMP_IFMIBD, self._agent_config)
+        result = _snmpvariables(self._agent_config)
         return result
 
     def target_polling_points(self):
@@ -123,8 +124,7 @@ class ConfigSNMPIfMIB(Config):
 
         """
         # Get result
-        result = _target_polling_points(
-            PATTOO_AGENT_SNMP_IFMIBD, self._agent_config)
+        result = _target_polling_points(self._agent_config)
         return result
 
     def polling_interval(self):
@@ -137,17 +137,18 @@ class ConfigSNMPIfMIB(Config):
             result: result
 
         """
-        # Get result
-        result = _polling_interval(
-            PATTOO_AGENT_SNMP_IFMIBD, self._agent_config)
+        # Get parameter
+        key = 'polling_interval'
+        result = self._agent_config.get(key, 300)
+        result = abs(int(result))
         return result
 
 
-def _target_polling_points(key, _configuration):
+def _target_polling_points(_configuration):
     """Get list of dicts of SNMP information in configuration file.
 
     Args:
-        group: Group name to filter results by
+        _configuration: Configuration to process
 
     Returns:
         result: List of IPTargetPollingPoints objects
@@ -158,8 +159,14 @@ def _target_polling_points(key, _configuration):
     datapoint_key = 'oids'
 
     # Get configuration snippet
-    sub_key = 'polling_groups'
-    sub_config = configuration.search(key, sub_key, _configuration, die=True)
+    key = 'polling_groups'
+    sub_config = _configuration.get(key)
+
+    if sub_config is None:
+        log_message = '''\
+"{}" parameter not found in configuration file. Will not poll.'''
+        log.log2info(55000, log_message)
+        return result
 
     # Create snmp objects
     groups = _validate_oids(sub_config)
@@ -180,33 +187,11 @@ def _target_polling_points(key, _configuration):
     return result
 
 
-def _polling_interval(key, _configuration):
-    """Get targets.
-
-    Args:
-        None
-
-    Returns:
-        result: result
-
-    """
-    # Get result
-    sub_key = 'polling_interval'
-    value = configuration.search(key, sub_key, _configuration, die=False)
-
-    # Default to 300
-    if bool(value) is False:
-        result = 300
-    else:
-        result = abs(int(value))
-    return result
-
-
-def _snmpvariables(key, _configuration):
+def _snmpvariables(_configuration):
     """Get list of dicts of SNMP information in configuration file.
 
     Args:
-        group: Group name to filter results by
+        _configuration: Configuration to process
 
     Returns:
         result: List of SNMPVariable items
@@ -216,8 +201,14 @@ def _snmpvariables(key, _configuration):
     result = []
 
     # Get configuration snippet
-    sub_key = 'auth_groups'
-    sub_config = configuration.search(key, sub_key, _configuration, die=True)
+    key = 'auth_groups'
+    sub_config = _configuration.get(key)
+
+    if sub_config is None:
+        log_message = '''\
+"{}" parameter not found in configuration file. Will not poll.'''
+        log.log2info(55001, log_message)
+        return result
 
     # Create snmp objects
     groups = _validate_snmp(sub_config)

@@ -37,70 +37,63 @@ Make sure that files in this directory are readable by the user that will be run
 Configuring ``pattoo_agent_snmp_ifmibd.yaml``
 ---------------------------------------------
 
-Let's get started on configuring ``pattoo_agent_snmp_ifmibd.yaml``.
-
-``pattoo_agent_snmp_ifmibd`` Section
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Here is a sample of what should be added. An explanation follows.
+Let's get started on configuring ``pattoo_agent_snmp_ifmibd.yaml``. Here is a sample of what should be added. An explanation follows.
 
 **NOTE:** The indentations in the YAML configuration are important. Make sure indentations line up. Dashes '-' indicate one item in a list of items.
 
 .. code-block:: yaml
 
-   pattoo_agent_snmp_ifmibd:
+   polling_interval: 300
 
-     polling_interval: 300
+   polling_groups:
 
-     polling_groups:
+     - group_name: TEST 1
+       ip_devices:
+         - ip.address.of.device1
+         - ip.address.of.device2
+       oids:
+         - address: .1.3.6.1.2.1.2.2.1.10
+           multiplier: 8
+         - address: .1.3.6.1.2.1.2.2.1.16
+           multiplier: 8
 
-       - group_name: TEST 1
-         ip_devices:
-           - ip.address.of.device1
-           - ip.address.of.device2
-         oids:
-           - address: .1.3.6.1.2.1.2.2.1.10
-             multiplier: 8
-           - address: .1.3.6.1.2.1.2.2.1.16
-             multiplier: 8
+     - group_name: TEST 2
+       ip_devices:
+         - ip.address.of.device3
+         - ip.address.of.device4
+       oids:
+         - address: .1.3.6.1.2.1.2.2.1.10
+           multiplier: 8
+         - address: .1.3.6.1.2.1.2.2.1.16
+           multiplier: 8
 
-       - group_name: TEST 2
-         ip_devices:
-           - ip.address.of.device3
-           - ip.address.of.device4
-         oids:
-           - address: .1.3.6.1.2.1.2.2.1.10
-             multiplier: 8
-           - address: .1.3.6.1.2.1.2.2.1.16
-             multiplier: 8
+   auth_groups:
 
-     auth_groups:
+     - group_name: CISCO
+       snmp_authpassword: null
+       snmp_authprotocol: null
+       snmp_community: public
+       snmp_port: 161
+       snmp_privpassword: null
+       snmp_privprotocol: null
+       snmp_secname: null
+       snmp_version: 2
+       ip_devices:
+         - ip.address.of.device1
+         - ip.address.of.device2
 
-       - group_name: CISCO
-         snmp_authpassword: null
-         snmp_authprotocol: null
-         snmp_community: public
-         snmp_port: 161
-         snmp_privpassword: null
-         snmp_privprotocol: null
-         snmp_secname: null
-         snmp_version: 2
-         ip_devices:
-           - ip.address.of.device1
-           - ip.address.of.device2
-
-       - group_name: Juniper
-         snmp_authpassword: null
-         snmp_authprotocol: null
-         snmp_community: notpublic
-         snmp_port: 161
-         snmp_privpassword: null
-         snmp_privprotocol: null
-         snmp_secname: null
-         snmp_version: 2
-         ip_devices:
-           - ip.address.of.device3
-           - ip.address.of.device4
+     - group_name: Juniper
+       snmp_authpassword: null
+       snmp_authprotocol: null
+       snmp_community: notpublic
+       snmp_port: 161
+       snmp_privpassword: null
+       snmp_privprotocol: null
+       snmp_secname: null
+       snmp_version: 2
+       ip_devices:
+         - ip.address.of.device3
+         - ip.address.of.device4
 
 
 Configuration Explanation
@@ -113,74 +106,53 @@ This table outlines the purpose of each configuration parameter
 
    * - Section
      - Sub-Section
-     - Config Options
      - Description
-   * - ``pattoo_agent_snmp_ifmibd:``
-     -
-     -
-     -
-   * -
-     - ``polling_interval``
+   * - ``polling_interval``
      -
      - The ``pattoo_agent_snmp_ifmibd`` will report to the ``pattoo`` server every ``polling_interval`` seconds
-   * -
-     - ``polling_groups:``
+   * - ``polling_groups:``
      -
      - List of groupings of ``ip_devices`` that need data from a shared set of SNMP OIDs.  Make this the first entry in the configuration sub-section. Make sure it starts with a dash '-' which indicates the beginning of a new grouping.
    * -
-     -
      - ``group_name:``
      - Unique name for a group of ``ip_devices`` that share the same SNMP parameters
    * -
-     -
      - ``ip_devices:``
      - List of ``ip_devices`` to poll for OID data
    * -
-     -
      - ``oids:``
      - OIDs to poll for data from for the ``ip_devices``. Each ``address`` must be an OID. The ``multiplier`` is the value by which the polled data result must be multiplied. This is useful in converting byte values to bits. The default ``multiplier`` is 1.
-   * -
-     - ``auth_groups:``
+   * - ``auth_groups:``
      -
      - List of groupings of ``ip_devices`` that share SNMP authentication parameters
    * -
-     -
      - ``group_name:``
      - Unique name for a group of ``ip_devices`` that share the same SNMP parameters.  Make this the first entry in the configuration sub-section. Make sure it starts with a dash '-' which indicates the beginning of a new grouping.
    * -
-     -
      - ``snmp_authpassword:``
      - SNMPv3 authpassword
    * -
-     -
      - ``snmp_authprotocol:``
      - SNMPv3 authprotocol
    * -
-     -
      - ``snmp_community:``
      - SNMPv2 community string
    * -
-     -
      - ``snmp_port:``
      - SNMP used by ``ip_devices``
    * -
-     -
      - ``snmp_privpassword:``
      - SNMPv3 privpassword
    * -
-     -
      - ``snmp_privprotocol:``
      - SNMPv3 privprotocol
    * -
-     -
      - ``snmp_secname:``
      - SNMPv3 secname
    * -
-     -
      - ``snmp_version:``
      - SNMP version
    * -
-     -
      - ``ip_devices:``
      - List of ``ip_addresses`` or hostnmae to poll
 
