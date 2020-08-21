@@ -46,7 +46,7 @@ Please follow this guide to build and install Net-SNMP 5.7.x on your system \
         http://www.net-snmp.org/docs/INSTALL.html''')
 
 
-def install(requirements_dir):
+def install(requirements_dir, installation_dir, verbose=False):
     """Ensure packages necessary for starting the snmp agent are installed.
 
     Args:
@@ -59,4 +59,4 @@ def install(requirements_dir):
     install_dependencies()
 
     # Install pip packages
-    packages.install(requirements_dir)
+    packages.install(requirements_dir, installation_dir, verbose=verbose)
