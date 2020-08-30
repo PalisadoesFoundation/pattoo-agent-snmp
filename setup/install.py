@@ -1,227 +1,242 @@
 #!/usr/bin/env python3
-"""Install pattoo."""
-
-# Main python libraries
+"""Script to install the pattoo snmp agent."""
+from inspect import ismethod
+import textwrap
+import argparse
 import sys
 import os
-import subprocess
-import traceback
-
-# Try to create a working PYTHONPATH
-EXEC_DIR = os.path.dirname(os.path.realpath(__file__))
+import getpass
+import pwd
+# Set up python path
+EXEC_DIR = os.path.dirname(os.path.realpath(sys.argv[0]))
 ROOT_DIR = os.path.abspath(os.path.join(EXEC_DIR, os.pardir))
-if EXEC_DIR.endswith('/pattoo-agent-snmp/setup') is True:
+_EXPECTED = '{0}pattoo-agent-snmp{0}setup'.format(os.sep)
+if EXEC_DIR.endswith(_EXPECTED) is True:
     sys.path.append(ROOT_DIR)
+    # Set pattoo config dir if it had not been set already
+    try:
+        os.environ['PATTOO_CONFIGDIR']
+    except KeyError:
+        os.environ['PATTOO_CONFIGDIR'] = '/etc/pattoo'
 else:
-    print(
-        'This script is not installed in the "pattoo/bin" directory. '
-        'Please fix.')
+    print('''\
+This script is not installed in the "{}" directory. Please fix.\
+'''.format(_EXPECTED))
     sys.exit(2)
 
-
-def check_pip3():
-    """Ensure PIP3 packages are installed correctly.
-
-    Args:
-        None
-
-    Returns:
-        None
-
-    """
-    # Initialize key variables
-    lines = []
-
-    # Read pip_requirements file
-    filepath = '{}{}pip_requirements.txt'.format(ROOT_DIR, os.sep)
-    if os.path.isfile(filepath) is False:
-        _log('Cannot find PIP3 requirements file {}'.format(filepath))
-
-    with open(filepath, 'r') as _fp:
-        line = _fp.readline()
-        while line:
-            # Strip line
-            _line = line.strip()
-
-            # Read line
-            if True in [_line.startswith('#'), bool(_line) is False]:
-                pass
-            else:
-                lines.append(_line)
-            line = _fp.readline()
-
-    # Try to import the modules listed in the file
-    for line in lines:
-        # Determine the package
-        package = line.split('=', 1)[0]
-        package = package.split('>', 1)[0]
-        print('??: Checking package {}'.format(package))
-        command = 'pip3 show {}'.format(package)
-        (returncode, _, _) = _run_script(command, die=False)
-        if bool(returncode) is True:
-            log_message = ('''\
-Python3 "{}" package not installed or pip3 command not found. Please fix.\
-'''.format(package))
-            _log(log_message)
-        print('OK: package {}'.format(line))
+from _pattoo_agent_snmp import shared, checks
 
 
-def check_config():
-    """Ensure configuration is correct.
+class _Parser(argparse.ArgumentParser):
+    """Class gathers all CLI information."""
 
-    Args:
-        None
+    def error(self, message):
+        """Override the default behavior of the error method.
 
-    Returns:
-        None
+        Will print the help message whenever the error method is triggered.
 
-    """
-    # Print Status
-    print('??: Checking configuration')
-
-    # Make sure the PATTOO_CONFIGDIR environment variable is set
-    if 'PATTOO_CONFIGDIR' not in os.environ:
-        log_message = ('''\
-Set your PATTOO_CONFIGDIR to point to your configuration directory like this:
-
-$ export PATTOO_CONFIGDIR=/path/to/configuration/directory
-
-Then run this command again.
-''')
-        _log(log_message)
-
-    # Make sure the PATTOO_CONFIGDIR environment variable is set
-    if os.path.isdir(os.environ['PATTOO_CONFIGDIR']) is False:
-        log_message = ('''\
-Set your PATTOO_CONFIGDIR cannot be found. Set the variable to point to an \
-existing directory:
-
-$ export PATTOO_CONFIGDIR=/path/to/configuration/directory
-
-Then run this command again.
-''')
-        _log(log_message)
-
-    #  Check parameters in the configuration
-    filepath = '{}{}setup/_check_config.py'.format(ROOT_DIR, os.sep)
-    _run_script(filepath)
-    print('OK: Configuration check passed')
+        Args:
+            None
+        Returns:
+            _args: Namespace() containing all of our CLI arguments as objects
+                - filename: Path to the configuration file
+        """
+        sys.stderr.write('\nERROR: {}\n\n'.format(message))
+        self.print_help()
+        sys.exit(2)
 
 
-def _run_script(cli_string, die=True):
-    """Run the cli_string UNIX CLI command and record output.
+class Parser():
+    """Class gathers all CLI information."""
 
-    Args:
-        cli_string: String of command to run
-        die: Exit with error if True
+    def __init__(self, additional_help=None):
+        """Intialize the class."""
+        # Create a number of here-doc entries
+        if additional_help is not None:
+            self._help = additional_help
+        else:
+            self._help = ''
 
-    Returns:
-        (returncode, stdoutdata, stderrdata):
-            Execution code, STDOUT output and STDERR output.
+    def args(self):
+        """Return all the CLI options.
 
-    """
-    # Initialize key variables
-    messages = []
-    stdoutdata = ''.encode()
-    stderrdata = ''.encode()
-    returncode = 1
+        Args:
+            None
 
-    # Say what we are doing
-    print('Running Command: "{}"'.format(cli_string))
+        Returns:
+            _args: Namespace() containing all of our CLI arguments as objects
+                - filename: Path to the configuration file
 
-    # Run update_targets script
-    do_command_list = list(cli_string.split(' '))
+        """
+        # Initialize key variables
+        width = 80
 
-    # Create the subprocess object
-    try:
-        process = subprocess.Popen(
-            do_command_list,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
-        stdoutdata, stderrdata = process.communicate()
-        returncode = process.returncode
-    except:
-        (exc_type, exc_value, exc_traceback) = sys.exc_info()
-        messages.append('''\
-Bug: Exception Type:{}, Exception Instance: {}, Stack Trace Object: {}]\
-    '''.format(exc_type, exc_value, exc_traceback))
-        messages.append(traceback.format_exc())
+        # Header for the help menu of the application
+        parser = _Parser(
+            description=self._help,
+            formatter_class=argparse.RawTextHelpFormatter)
 
-    # Crash if the return code is not 0
-    if bool(returncode) is True:
-        # Print the Return Code header
-        messages.append(
-            'Return code:{}'.format(returncode)
+        # Add subparser
+        subparsers = parser.add_subparsers(dest='action')
+
+        # Parse "install", return object used for parser
+        _Install(subparsers, width=width)
+
+        # Install help if no arguments
+        if len(sys.argv) == 1:
+            parser.print_help(sys.stderr)
+            sys.exit(1)
+
+        # Return the CLI arguments
+        _args = parser.parse_args()
+
+        # Return our parsed CLI arguments
+        return (_args, parser)
+
+
+class _Install():
+    """Class gathers all CLI 'install' information."""
+
+    def __init__(self, subparsers, width=80):
+        """Intialize the class."""
+        # Initialize key variables for normal installation
+        install_help = '''\
+Install pattoo. Type install --help to see additional arguments'''
+        install_parser = subparsers.add_parser(
+            'install',
+            help=textwrap.fill(install_help, width=width)
         )
 
-        # Print the STDOUT
-        for line in stdoutdata.decode().split('\n'):
-            messages.append(
-                'STDOUT: {}'.format(line)
-            )
+        # Add subparser
+        self.subparsers = install_parser.add_subparsers(dest='qualifier')
 
-        # Print the STDERR
-        for line in stderrdata.decode().split('\n'):
-            messages.append(
-                'STDERR: {}'.format(line)
-            )
+        # Execute all methods in this Class
+        self._execute_methods(width=width)
 
-        # Log message
-        for log_message in messages:
-            print(log_message)
+    def all(self, width=80):
+        """CLI command to install all pattoo components.
 
-        if bool(die) is True:
-            # All done
-            sys.exit(2)
+        Args:
+            width: Width of the help text string to STDIO before wrapping
 
-    # Return
-    return (returncode, stdoutdata, stderrdata)
+        Returns:
+            None
+
+        """
+        # Initialize key variables
+        parser = self.subparsers.add_parser(
+            'all',
+            help=textwrap.fill('Install all pattoo components', width=width)
+        )
+
+        # Add arguments
+        parser.add_argument(
+            '--verbose',
+            action='store_true',
+            help='Enable verbose mode.')
+
+    def pip(self, width=80):
+        """CLI command to install the necessary pip3 packages.
+
+        Args:
+            width: Width of the help text string to STDIO before wrapping
+        Returns:
+            None
+
+        """
+        # Initialize key variables
+        parser = self.subparsers.add_parser(
+            'pip',
+            help=textwrap.fill('Install pip packages', width=width)
+        )
+
+        parser.add_argument(
+            '--verbose',
+            action='store_true',
+            help='Enable verbose mode.')
+
+    def configuration(self, width=80):
+        """CLI command to configure pattoo.
+
+        Args:
+            width: Width of the help text string to STDIO before wrapping
+
+        Returns:
+            None
+
+        """
+        # Initialize key variables
+        _ = self.subparsers.add_parser(
+            'configuration',
+            help=textwrap.fill('Configure the pattoo linux agent', width=width)
+        )
+
+    def systemd(self, width=80):
+        """CLI command to install and start the system daemons.
+
+        Args:
+            width: Width of the help text string to STDIO before wrapping
+
+        Returns:
+            None
+
+        """
+        # Initialize key variables
+        _ = self.subparsers.add_parser(
+            'systemd',
+            help=textwrap.fill('Install and run system daemons', width=width)
+        )
+
+    def _execute_methods(self, width=80):
+        """Execute class methods.
+
+        Args:
+            width: Width of the help text string to STDIO before wrapping
+
+        Returns:
+            None
+
+        """
+        # Execute all methods in this Class
+        for name in dir(self):
+            # Get all attributes of Class
+            attribute = getattr(self, name)
+
+            # Determine whether attribute is a method
+            if ismethod(attribute):
+                # Ignore if method name is reserved (eg. __Init__)
+                if name.startswith('_'):
+                    continue
+
+                # Execute
+                attribute(width=width)
 
 
-def next_steps():
-    """Print what needs to be done after successful installation.
+def get_pattoo_home():
+    """Retrieve home directory for pattoo user.
 
     Args:
         None
 
     Returns:
-        None
+        The home directory for the pattoo user
 
     """
-    # Print
-    message = ('''
-Hooray successful installation! Panna Cotta Time!
+    try:
+        # No exception will be thrown if the pattoo user exists
+        pattoo_home = pwd.getpwnam('pattoo').pw_dir
+    # Set defaults if pattoo user doesn't exist
+    except KeyError:
+        pattoo_home = '/home/pattoo'
 
-Next Steps:
-    1) Configure your agents to post data to this server.
-
-Other steps:
-    1) You can make the various pattoo agents be system daemons by running the
-       scripts in the 'setup/systemd' directory. Visit this link for details:
-
-       https://github.com/PalisadoesFoundation/pattoo-agent-snmp/tree/master/setup/systemd
-
-''')
-    print(message)
-
-
-def _log(message):
-    """Log messages and exit abnormally.
-
-    Args:
-        message: Message to print
-
-    Returns:
-        None
-
-    """
-    # exit
-    print('\nPATTOO Error: {}'.format(message))
-    sys.exit(3)
+    # Ensure that the pattoo home directory is not set to non-existent
+    if pattoo_home == '/nonexistent':
+        pattoo_home = '/home/pattoo'
+    return pattoo_home
 
 
 def main():
-    """Install pattoo-agent-snmp.
+    """Pattoo CLI script.
 
     Args:
         None
@@ -230,16 +245,69 @@ def main():
         None
 
     """
-    # Check PIP3 packages
-    check_pip3()
+    # Initialize key variables
+    _help = 'This program is the CLI interface to configuring the snmp agent'
+    template_dir = os.path.join(ROOT_DIR, 'setup/systemd/system')
+    daemon_list = ['pattoo_agent_snmp_ifmibd', 'pattoo_agent_snmpd']
 
-    # Check configuration
-    check_config()
+    # Process the CLI
+    _parser = Parser(additional_help=_help)
+    (args, parser) = _parser.args()
 
-    # Print next steps
-    next_steps()
+    # Perform checks
+    checks.parser_check(_parser.args()[1], _parser.args()[0])
+    checks.pattoo_shared_check()
+    checks.venv_check()
+
+    # Import packages that depend on pattoo shared
+    from _pattoo_agent_snmp import configure, packages
+    from pattoo_shared.installation import systemd, environment
+
+    # Set up essentials for creating the virtualenv
+    pattoo_home = get_pattoo_home()
+    venv_dir = os.path.join(pattoo_home, 'pattoo-venv')
+    if getpass.getuser() != 'travis':
+        environment.environment_setup(venv_dir)
+    venv_interpreter = os.path.join(venv_dir, 'bin/python3')
+    installation_dir = '{} {}'.format(venv_interpreter, ROOT_DIR)
+
+    # Installs all linux agent components
+    if args.qualifier == 'all':
+        print('Installing everything')
+        configure.install(daemon_list, pattoo_home)
+        packages.install(ROOT_DIR, venv_dir, args.verbose)
+        if shared.root_check() is True and args.action != 'developer':
+            systemd.install(daemon_list=daemon_list,
+                            template_dir=template_dir,
+                            installation_dir=installation_dir)
+
+    # Sets up configuration for linux agent
+    elif args.qualifier == 'configuration':
+        print('Installing configuration')
+        configure.install(daemon_list, pattoo_home)
+
+    # Installs necessary pip packages
+    elif args.qualifier == 'pip':
+        print('Installing pip packages')
+        packages.install(ROOT_DIR, venv_dir, args.verbose)
+
+    # Installs and runs system daemons
+    elif args.qualifier == 'systemd':
+        if shared.root_check() is True:
+            print('Installing and running system daemons')
+            systemd.install(daemon_list=daemon_list,
+                            template_dir=template_dir,
+                            installation_dir=installation_dir)
+        else:
+            shared.log('You need to be running as root to install the daemons')
+
+    else:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+
+        # Done
+        print('Done')
 
 
 if __name__ == '__main__':
-    # Run setup
     main()
