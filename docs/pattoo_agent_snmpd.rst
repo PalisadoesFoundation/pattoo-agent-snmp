@@ -97,7 +97,7 @@ Let's get started on configuring ``pattoo_agent_snmpd.yaml``. Here is a sample o
 
 
 Configuration Explanation
-~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This table outlines the purpose of each configuration parameter
 
