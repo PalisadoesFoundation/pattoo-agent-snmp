@@ -60,3 +60,4 @@ Developers
    :caption: Developers:
 
    contributing
+   maintainers

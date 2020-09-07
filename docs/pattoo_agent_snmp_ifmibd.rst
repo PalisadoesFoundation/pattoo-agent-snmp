@@ -97,7 +97,7 @@ Let's get started on configuring ``pattoo_agent_snmp_ifmibd.yaml``. Here is a sa
 
 
 Configuration Explanation
-~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This table outlines the purpose of each configuration parameter
 
